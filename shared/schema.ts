@@ -40,7 +40,7 @@ export type User = typeof users.$inferSelect;
 
 // Job applications table
 export const jobApplications = pgTable("job_applications", {
-  id: serial("id").primaryKey(),
+  id: varchar("id").primaryKey(),
   userId: varchar("user_id").notNull(),
   company: varchar("company").notNull(),
   position: varchar("position").notNull(),
@@ -66,7 +66,7 @@ export type JobApplication = typeof jobApplications.$inferSelect;
 
 // AI feedback table
 export const aiFeedback = pgTable("ai_feedback", {
-  id: serial("id").primaryKey(),
+  id: varchar("id").primaryKey(),
   userId: varchar("user_id").notNull(),
   jobDescription: text("job_description").notNull(),
   resume: text("resume").notNull(),
