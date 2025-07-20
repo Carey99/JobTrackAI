@@ -101,3 +101,54 @@
     background-color: hsl(0, 84.2%, 60.2%, 0.1);
   }
 }
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+.animation-float {
+  animation: float 8s ease-in-out infinite;
+}
+
+.animation-float-delay {
+  animation: float 10s ease-in-out 1s infinite;
+}
+
+.animation-float-slow {
+  animation: float 12s ease-in-out 2s infinite;
+}
+
+.animation-pulse-slow {
+  animation: pulse 4s ease-in-out infinite;
+}
+
+/* Add to your globals.css */
+.parallax-container {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  perspective: 8px;
+}
+
+.parallax-layer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
+.parallax-layer-back {
+  transform: translateZ(-8px) scale(2);
+}
+
+.parallax-layer-base {
+  transform: translateZ(0);
+}
+

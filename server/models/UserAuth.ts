@@ -1,0 +1,27 @@
+import mongoose from 'mongoose';
+
+const userAuthSchema = new mongoose.Schema({
+  userId: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+  },
+  hashedPassword: {
+    type: String,
+    required: true,
+  },
+}, {
+  timestamps: true,
+});
+
+// Create indexes for better query performance
+userAuthSchema.index({ email: 1 });
+userAuthSchema.index({ userId: 1 });
+
+export default mongoose.model('UserAuth', userAuthSchema);

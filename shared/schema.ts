@@ -38,6 +38,52 @@ export const users = pgTable("users", {
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
+// User profiles table for extended profile information
+export const userProfiles = pgTable("user_profiles", {
+  id: varchar("id").primaryKey(),
+  userId: varchar("user_id").notNull().unique(),
+
+  // Personal Information
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  email: varchar("email"),
+  phone: varchar("phone"),
+  location: varchar("location"),
+  linkedinUrl: varchar("linkedin_url"),
+  portfolioUrl: varchar("portfolio_url"),
+
+  // Professional Information
+  currentTitle: varchar("current_title"),
+  yearsOfExperience: varchar("years_of_experience"),
+  targetSalary: varchar("target_salary"),
+  availabilityDate: varchar("availability_date"),
+  workLocation: varchar("work_location"),
+
+  // Education
+  highestEducation: varchar("highest_education"),
+  fieldOfStudy: varchar("field_of_study"),
+  university: varchar("university"),
+  graduationYear: varchar("graduation_year"),
+
+  // Skills & Bio
+  skills: text("skills"),
+  bio: text("bio"),
+  careerObjective: text("career_objective"),
+
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
+  id: true,
+  userId: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
+export type UserProfile = typeof userProfiles.$inferSelect;
+
 // Job applications table
 export const jobApplications = pgTable("job_applications", {
   id: varchar("id").primaryKey(),

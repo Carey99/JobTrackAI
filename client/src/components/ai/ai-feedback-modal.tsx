@@ -81,7 +81,7 @@ export function AIFeedbackModal({ isOpen, onClose }: AIFeedbackModalProps) {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/login";
         }, 500);
         return;
       }
@@ -107,16 +107,8 @@ export function AIFeedbackModal({ isOpen, onClose }: AIFeedbackModalProps) {
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>AI Application Feedback</span>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={handleClose}
-              className="text-slate-400 hover:text-slate-600"
-            >
-              <X className="w-4 h-4" />
-            </Button>
+          <DialogTitle>
+            AI Application Feedback
           </DialogTitle>
         </DialogHeader>
 

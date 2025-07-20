@@ -3,13 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { isUnauthorizedError } from "@/lib/authUtils";
+import { apiRequest } from "@/lib/queryClient";
 import { Sidebar } from "@/components/layout/sidebar";
 import { ApplicationCard } from "@/components/applications/application-card";
 import { AddApplicationModal } from "@/components/applications/add-application-modal";
 import { ApplicationFilters } from "@/components/applications/application-filters";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import type { JobApplication } from "@shared/schema";
 
 export default function Dashboard() {
@@ -29,19 +29,46 @@ export default function Dashboard() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
+        window.location.href = "/login";
       }, 500);
       return;
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  const { data: applications = [], isLoading: applicationsLoading } = useQuery({
+  // Fetch applications data
+  const { data: apiResponse, isLoading: applicationsLoading } = useQuery({
     queryKey: ["/api/applications"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/api/applications");
+      const data = await response.json();
+      console.log("API Response:", data);
+      return data;
+    },
     enabled: isAuthenticated,
   });
 
+  // Ensure applications is always an array before filtering
+  const applications = apiResponse ? 
+    (Array.isArray(apiResponse) ? apiResponse : 
+    (Array.isArray(apiResponse.data) ? apiResponse.data : [])) 
+    : [];
+
+  console.log("Applications:", applications);
+
+  // Safety check before filtering
+  const filteredApplications = Array.isArray(applications) ? 
+    applications.filter((app: JobApplication) => {
+      const matchesStatus = statusFilter === "all" || app.status === statusFilter;
+      const matchesSearch = !searchQuery || 
+        app.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        app.position.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesStatus && matchesSearch;
+    }) 
+    : [];
+
+  // Delete application mutation
   const deleteApplicationMutation = useMutation({
-    mutationFn: async (id: number) => {
+    mutationFn: async (id: string) => {
       await apiRequest("DELETE", `/api/applications/${id}`);
     },
     onSuccess: () => {
@@ -59,7 +86,7 @@ export default function Dashboard() {
           variant: "destructive",
         });
         setTimeout(() => {
-          window.location.href = "/api/login";
+          window.location.href = "/login"; // Fixed URL
         }, 500);
         return;
       }
@@ -71,19 +98,56 @@ export default function Dashboard() {
     },
   });
 
-  const filteredApplications = applications.filter((app: JobApplication) => {
-    const matchesStatus = statusFilter === "all" || app.status === statusFilter;
-    const matchesSearch = searchQuery === "" || 
-      app.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.position.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    return matchesStatus && matchesSearch;
+  // NEW: Update application mutation for status changes
+  const updateApplicationMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string, data: Partial<JobApplication> }) => {
+      const response = await apiRequest("PUT", `/api/applications/${id}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
+      toast({
+        title: "Success",
+        description: "Application updated successfully",
+      });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/login"; // Fixed URL
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to update application",
+        variant: "destructive",
+      });
+    },
   });
 
-  const handleDeleteApplication = (id: number) => {
+  const handleDeleteApplication = (id: string) => {
     if (window.confirm("Are you sure you want to delete this application?")) {
       deleteApplicationMutation.mutate(id);
     }
+  };
+
+  // NEW: Handler for updating applications (for status changes)
+  const handleUpdateApplication = async (id: string, data: Partial<JobApplication>): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      updateApplicationMutation.mutate(
+        { id, data },
+        {
+          onSuccess: () => resolve(),
+          onError: (error) => reject(error)
+        }
+      );
+    });
   };
 
   if (isLoading) {
@@ -123,7 +187,6 @@ export default function Dashboard() {
           </div>
         </header>
 
-        {/* Filters */}
         <ApplicationFilters
           statusFilter={statusFilter}
           setStatusFilter={setStatusFilter}
@@ -131,7 +194,6 @@ export default function Dashboard() {
           setSearchQuery={setSearchQuery}
         />
 
-        {/* Applications Grid */}
         <div className="flex-1 p-8">
           {applicationsLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -183,6 +245,7 @@ export default function Dashboard() {
                   key={application.id}
                   application={application}
                   onDelete={() => handleDeleteApplication(application.id)}
+                  onUpdate={handleUpdateApplication}
                 />
               ))}
             </div>

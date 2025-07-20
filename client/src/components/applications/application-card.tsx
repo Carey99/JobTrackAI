@@ -9,14 +9,26 @@ import {
   Building,
   MapPin,
   DollarSign,
-  Calendar
+  Calendar,
+  Check,
+  ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { JobApplication } from "@shared/schema";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { EditApplicationModal } from "./edit-application-modal";
 
 interface ApplicationCardProps {
   application: JobApplication;
   onDelete: () => void;
+  onUpdate?: (id: string, data: Partial<JobApplication>) => Promise<void>;
 }
 
 const statusColors = {
@@ -35,8 +47,13 @@ const statusOpacity = {
   "Ghosted": "opacity-60"
 };
 
-export function ApplicationCard({ application, onDelete }: ApplicationCardProps) {
+// Available statuses for the dropdown
+const statuses = ["Applied", "Interview", "Offer", "Rejected", "Ghosted"];
+
+export function ApplicationCard({ application, onDelete, onUpdate }: ApplicationCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -44,6 +61,41 @@ export function ApplicationCard({ application, onDelete }: ApplicationCardProps)
       await onDelete();
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (newStatus === application.status) return;
+    
+    setIsUpdating(true);
+    try {
+      // If parent provided an update handler, use it
+      if (onUpdate) {
+        await onUpdate(application.id, { status: newStatus });
+      } else {
+        // Otherwise make the API call directly
+        const response = await apiRequest("PUT", `/api/applications/${application.id}`, {
+          status: newStatus
+        });
+        const updatedApp = await response.json();
+        
+        // Force refresh the page data by triggering a refresh
+        window.dispatchEvent(new CustomEvent('app:refresh-applications'));
+      }
+      
+      toast({
+        title: "Status updated",
+        description: `Application status changed to ${newStatus}`,
+      });
+    } catch (error) {
+      console.error("Failed to update status:", error);
+      toast({
+        title: "Update failed",
+        description: "Failed to update application status",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -71,14 +123,41 @@ export function ApplicationCard({ application, onDelete }: ApplicationCardProps)
               <p className="text-sm text-slate-600">{application.position}</p>
             </div>
           </div>
-          <Badge 
-            className={cn(
-              "px-3 py-1 text-sm font-medium",
-              statusColors[application.status as keyof typeof statusColors]
-            )}
-          >
-            {application.status}
-          </Badge>
+          
+          {/* Make the Badge clickable using DropdownMenu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Badge 
+                className={cn(
+                  "px-3 py-1 text-sm font-medium cursor-pointer hover:opacity-80",
+                  statusColors[application.status as keyof typeof statusColors]
+                )}
+              >
+                <span className="flex items-center">
+                  {application.status} <ChevronDown className="ml-1 h-3 w-3" />
+                </span>
+              </Badge>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {statuses.map((status) => (
+                <DropdownMenuItem
+                  key={status}
+                  className={cn(
+                    "cursor-pointer",
+                    status === application.status && "font-medium bg-slate-50"
+                  )}
+                  onClick={() => handleStatusChange(status)}
+                  disabled={isUpdating}
+                >
+                  <span className="flex items-center">
+                    {status === application.status && <Check className="mr-2 h-4 w-4" />}
+                    {status !== application.status && <span className="w-6" />}
+                    {status}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
         
         <div className="space-y-3">
@@ -126,6 +205,7 @@ export function ApplicationCard({ application, onDelete }: ApplicationCardProps)
                 variant="ghost" 
                 size="sm" 
                 className="text-slate-400 hover:text-primary"
+                onClick={() => setShowEditModal(true)}
               >
                 <Edit className="w-4 h-4" />
               </Button>
@@ -142,6 +222,15 @@ export function ApplicationCard({ application, onDelete }: ApplicationCardProps)
           </div>
         </div>
       </CardContent>
+      
+      {showEditModal && (
+        <EditApplicationModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          application={application}
+          onUpdate={onUpdate}
+        />
+      )}
     </Card>
   );
 }

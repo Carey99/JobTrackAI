@@ -1,25 +1,12 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { insertJobApplicationSchema } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
+import { z } from "zod";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -27,51 +14,75 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
-import { z } from "zod";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { isUnauthorizedError } from "@/lib/authUtils";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import type { JobApplication } from "@shared/schema";
 
-interface AddApplicationModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-const formSchema = insertJobApplicationSchema.extend({
-  applicationDate: z.string().min(1, "Application date is required"),
+// Use the same schema as AddApplicationModal
+const formSchema = z.object({
+  company: z.string().min(1, "Company name is required"),
+  position: z.string().min(1, "Position is required"),
+  location: z.string().optional(),
+  salaryRange: z.string().optional(),
+  status: z.string(),
+  applicationDate: z.string(),
+  jobDescriptionUrl: z.string().url().optional().or(z.literal('')),
+  notes: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
 
-export function AddApplicationModal({ isOpen, onClose }: AddApplicationModalProps) {
+interface EditApplicationModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  application: JobApplication;
+  onUpdate?: (id: string, data: Partial<JobApplication>) => Promise<void>;
+}
+
+export function EditApplicationModal({ 
+  isOpen, 
+  onClose, 
+  application,
+  onUpdate 
+}: EditApplicationModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Initialize form with existing application data
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      company: "",
-      position: "",
-      location: "",
-      salaryRange: "",
-      status: "Applied",
-      applicationDate: new Date().toISOString().split('T')[0],
-      jobDescriptionUrl: "",
-      notes: "",
+      company: application.company,
+      position: application.position,
+      location: application.location || "",
+      salaryRange: application.salaryRange || "",
+      status: application.status,
+      applicationDate: application.applicationDate,
+      jobDescriptionUrl: application.jobDescriptionUrl || "",
+      notes: application.notes || "",
     },
   });
 
-  const createApplicationMutation = useMutation({
+  const updateApplicationMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const response = await apiRequest("POST", "/api/applications", data);
+      // If parent component provided an update handler, use it
+      if (onUpdate) {
+        await onUpdate(application.id, data);
+        return;
+      }
+      
+      // Otherwise, make API call directly
+      const response = await apiRequest("PUT", `/api/applications/${application.id}`, data);
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/applications"] });
       toast({
         title: "Success",
-        description: "Application added successfully",
+        description: "Application updated successfully",
       });
       form.reset();
       onClose();
@@ -90,49 +101,34 @@ export function AddApplicationModal({ isOpen, onClose }: AddApplicationModalProp
       }
       toast({
         title: "Error",
-        description: "Failed to add application",
+        description: "Failed to update application",
         variant: "destructive",
       });
     },
   });
 
   const onSubmit = (data: FormData) => {
-    createApplicationMutation.mutate(data);
-  };
-
-  const handleClose = () => {
-    form.reset();
-    onClose();
+    updateApplicationMutation.mutate(data);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>Add New Application</span>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={handleClose}
-              className="text-slate-400 hover:text-slate-600"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          </DialogTitle>
+          <DialogTitle>Edit Application</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="company"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Company Name</FormLabel>
+                    <FormLabel>Company *</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Google" {...field} />
+                      <Input placeholder="Company name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -144,17 +140,15 @@ export function AddApplicationModal({ isOpen, onClose }: AddApplicationModalProp
                 name="position"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Position</FormLabel>
+                    <FormLabel>Position *</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Senior Software Engineer" {...field} />
+                      <Input placeholder="Job title" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField
                 control={form.control}
                 name="location"
@@ -162,7 +156,7 @@ export function AddApplicationModal({ isOpen, onClose }: AddApplicationModalProp
                   <FormItem>
                     <FormLabel>Location</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., San Francisco, CA" {...field} />
+                      <Input placeholder="Remote, City, etc." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -176,25 +170,26 @@ export function AddApplicationModal({ isOpen, onClose }: AddApplicationModalProp
                   <FormItem>
                     <FormLabel>Salary Range</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., $120K - $150K" {...field} />
+                      <Input placeholder="e.g. $80K-$100K" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
               <FormField
                 control={form.control}
                 name="status"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
+                          <SelectValue placeholder="Select a status" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -232,7 +227,7 @@ export function AddApplicationModal({ isOpen, onClose }: AddApplicationModalProp
                 <FormItem>
                   <FormLabel>Job Description URL</FormLabel>
                   <FormControl>
-                    <Input type="url" placeholder="https://..." {...field} />
+                    <Input type="url" placeholder="https://" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -247,10 +242,9 @@ export function AddApplicationModal({ isOpen, onClose }: AddApplicationModalProp
                   <FormLabel>Notes</FormLabel>
                   <FormControl>
                     <Textarea 
-                      rows={4} 
-                      placeholder="Add any relevant notes about this application..."
-                      className="resize-none"
-                      {...field}
+                      placeholder="Add any notes about the application"
+                      className="min-h-[100px]"
+                      {...field} 
                     />
                   </FormControl>
                   <FormMessage />
@@ -258,20 +252,15 @@ export function AddApplicationModal({ isOpen, onClose }: AddApplicationModalProp
               )}
             />
 
-            <div className="flex items-center justify-end space-x-4 pt-4">
-              <Button 
-                type="button" 
-                variant="outline"
-                onClick={handleClose}
-              >
+            <div className="flex justify-end space-x-3">
+              <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
               <Button 
                 type="submit" 
-                className="bg-primary hover:bg-blue-600"
-                disabled={createApplicationMutation.isPending}
+                disabled={updateApplicationMutation.isPending}
               >
-                {createApplicationMutation.isPending ? "Adding..." : "Add Application"}
+                {updateApplicationMutation.isPending ? "Updating..." : "Update Application"}
               </Button>
             </div>
           </form>

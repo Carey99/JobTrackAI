@@ -1,5 +1,4 @@
 import { Link, useLocation } from "wouter";
-import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { 
   Briefcase, 
@@ -10,10 +9,11 @@ import {
   Settings, 
   LogOut 
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const navItems = [
-  { href: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/applications", icon: List, label: "Applications" },
+  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/dashboard", icon: List, label: "Applications" },
   { href: "/ai-feedback", icon: Brain, label: "AI Feedback" },
   { href: "/analytics", icon: BarChart3, label: "Analytics" },
   { href: "/settings", icon: Settings, label: "Settings" },
@@ -21,22 +21,79 @@ const navItems = [
 
 export function Sidebar() {
   const [location] = useLocation();
-  const { user } = useAuth();
+  const [, setLocation] = useLocation();
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const handleLogout = () => {
-    window.location.href = "/api/logout";
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const response = await fetch('/api/auth/user', {
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
+        } else {
+          // Not authenticated, redirect to landing
+          setLocation("/");
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        setLocation("/");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [setLocation]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/signout', { 
+        method: 'POST',
+        credentials: 'include',
+      });
+      
+      localStorage.clear();
+      sessionStorage.clear();
+      setLocation("/");
+    } catch (error) {
+      console.error('Error signing out:', error);
+      setLocation("/");
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="w-64 bg-white h-full border-r border-slate-200 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+          <p className="text-sm text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // Will redirect to landing page
+  }
 
   return (
     <div className="w-64 bg-white border-r border-slate-200 flex flex-col">
       {/* Logo and Brand */}
       <div className="p-6 border-b border-slate-200">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <Briefcase className="w-4 h-4 text-white" />
+        <Link href="/">
+          <div className="flex items-center space-x-3 cursor-pointer">
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+              <Briefcase className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-xl font-bold text-slate-800">JobTrackAI</span>
           </div>
-          <span className="text-xl font-bold text-slate-800">JobTrackAI</span>
-        </div>
+        </Link>
       </div>
 
       {/* Navigation */}
@@ -44,13 +101,13 @@ export function Sidebar() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location === item.href || 
-            (item.href === "/" && location === "/dashboard");
+            (item.href === "/dashboard" && location === "/");
           
           return (
             <Link key={item.href} href={item.href}>
-              <a
+              <div
                 className={cn(
-                  "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors",
+                  "flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors cursor-pointer",
                   isActive
                     ? "bg-slate-100 text-primary"
                     : "text-slate-700 hover:bg-slate-100"
@@ -60,7 +117,7 @@ export function Sidebar() {
                 <span className={cn("font-medium", isActive ? "text-primary" : "text-slate-700")}>
                   {item.label}
                 </span>
-              </a>
+              </div>
             </Link>
           );
         })}
