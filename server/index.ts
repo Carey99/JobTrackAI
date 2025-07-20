@@ -110,8 +110,9 @@ app.use((req, res, next) => {
       // Production mode
       log("Setting up static file serving for production...");
       
-      // Set the correct path to your client build folder
-      const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');
+      // In production, the client build is in dist/public (same level as the compiled server)
+      const clientBuildPath = path.join(__dirname, 'public');
+      log(`Client build path: ${clientBuildPath}`);
       
       // Serve static files
       app.use(express.static(clientBuildPath));
@@ -133,9 +134,11 @@ app.use((req, res, next) => {
         return next();
       }
       
-      // In production, serve the index.html
-      const clientBuildPath = path.join(__dirname, '..', 'client', 'dist');
-      res.sendFile(path.join(clientBuildPath, 'index.html'));
+      // In production, serve the index.html from dist/public
+      const clientBuildPath = path.join(__dirname, 'public');
+      const indexPath = path.join(clientBuildPath, 'index.html');
+      log(`Serving index.html from: ${indexPath}`);
+      res.sendFile(indexPath);
     });
 
     // Start the server
