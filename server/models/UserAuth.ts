@@ -20,8 +20,4 @@ const userAuthSchema = new mongoose.Schema({
   timestamps: true,
 });
 
-// Create indexes for better query performance
-userAuthSchema.index({ email: 1 });
-userAuthSchema.index({ userId: 1 });
-
 export default mongoose.model('UserAuth', userAuthSchema);
