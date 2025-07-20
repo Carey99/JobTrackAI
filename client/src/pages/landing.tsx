@@ -1,10 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Briefcase, Brain, TrendingUp, Users, ArrowRight } from "lucide-react";
+import { Briefcase, Brain, TrendingUp, Users, ArrowRight, Menu, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState, useEffect, useRef } from 'react';
 import { useInView } from 'react-intersection-observer';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { Particles } from "@tsparticles/react";
 import { loadSlim } from "@tsparticles/slim";
 import { useCallback } from 'react';
@@ -12,6 +12,7 @@ import HeroBackground from '@/components/3d/HeroBackground';
 
 export default function Landing() {
   const [, setLocation] = useLocation();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const containerRef = useRef(null);
   
   // Parallax scrolling effect hooks
@@ -21,8 +22,14 @@ export default function Landing() {
   const opacity1 = useTransform(scrollY, [0, 300, 500], [1, 0.5, 0]);
   const scale1 = useTransform(scrollY, [0, 500], [1, 0.8]);
   
-  const handleSignIn = () => setLocation("/login");
-  const handleGetStarted = () => setLocation("/signup");
+  const handleSignIn = () => {
+    setIsMobileMenuOpen(false);
+    setLocation("/login");
+  };
+  const handleGetStarted = () => {
+    setIsMobileMenuOpen(false);
+    setLocation("/signup");
+  };
 
   // Parallax image layer component
   const ParallaxLayer = ({ src, speed = 0, className = "", position = "center center", scale = 1.1 }) => {
@@ -72,7 +79,9 @@ export default function Landing() {
               </motion.div>
               <span className="text-2xl font-display font-bold text-slate-800 tracking-wider">JobTrackAI</span>
             </div>
-            <div className="space-x-4">
+            
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex space-x-4">
               <Button 
                 variant="ghost"
                 onClick={handleSignIn}
@@ -87,7 +96,53 @@ export default function Landing() {
                 Start Now
               </Button>
             </div>
+
+            {/* Mobile Menu Button */}
+            <div className="md:hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2"
+              >
+                <motion.div
+                  animate={{ rotate: isMobileMenuOpen ? 90 : 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                </motion.div>
+              </Button>
+            </div>
           </div>
+
+          {/* Mobile Menu */}
+          <AnimatePresence>
+            {isMobileMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}
+                className="md:hidden overflow-hidden"
+              >
+                <div className="pt-4 pb-2 space-y-3">
+                  <Button 
+                    variant="ghost"
+                    onClick={handleSignIn}
+                    className="w-full justify-start font-display tracking-wide text-sm"
+                  >
+                    Sign In
+                  </Button>
+                  <Button 
+                    onClick={handleGetStarted}
+                    className="w-full bg-primary hover:bg-indigo-600 font-display tracking-wide text-sm"
+                  >
+                    Start Now
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </header>
 
