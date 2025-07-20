@@ -264,12 +264,4 @@ If JobTrackAI helped you land your dream job, consider:
 
 ---
 
-<div align="center">
 
-**Built with ❤️ by developers who understand the job search struggle**
-
-[🌐 Website](https://jobtrackAI.com) • [📧 Email](mailto:hello@jobtrackAI.com) • [🐦 Twitter](https://twitter.com/jobtrackAI)
-
-*JobTrackAI - Because every application deserves to be tracked beautifully.*
-
-</div>
